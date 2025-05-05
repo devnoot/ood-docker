@@ -6,4 +6,10 @@ Before using, clone `https://github.com/swarthmore/ood-configs` into `./swarthmo
 
 Run `docker compose up` to start
 
-**This compose strategy currently only works on `arm64`**
+## Notes
+
+* This compose strategy currently only works on `arm64`
+
+* Current ood version used in this strategy is `3.1.1`
+
+* The default login is `hpc.user:password`
