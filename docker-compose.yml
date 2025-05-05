@@ -29,6 +29,15 @@ services:
     depends_on:
       - ldap
       - slurm-controller
+    volumes:
+      - ./swarthmore-ood-configs/swarthmore.yml:/etc/ood/config/ondemand.d/swarthmore.yml
+      - ./swarthmore-ood-configs/widgets/disk-usage/disk-usage:/etc/ood/config/apps/dashboard/views/widgets/swarthmore/disk-usage
+      - ./swarthmore-ood-configs/widgets/disk-usage/_disk-usage.html.erb:/etc/ood/config/apps/dashboard/views/widgets/swarthmore/_disk-usage.html.erb
+      - ./swarthmore-ood-configs/widgets/slurm-usage/slurm-usage:/etc/ood/config/apps/dashboard/views/widgets/swarthmore/slurm-usage
+      - ./swarthmore-ood-configs/widgets/slurm-usage/_slurm-usage.html.erb:/etc/ood/config/apps/dashboard/views/widgets/swarthmore/_slurm-usage.html.erb
+      - ./swarthmore-ood-configs/css/swarthmore-firebird.css:/var/www/ood/public/css/swarthmore-firebird.css
+      - ./swarthmore-ood-configs/js/swarthmore-firebird.js:/var/www/ood/public/js/swarthmore-firebird.js
+
 
   slurm-controller:
     hostname: slurm-controller
