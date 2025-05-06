@@ -29,6 +29,7 @@ services:
     depends_on:
       - ldap
       - slurm-controller
+      # - db
     volumes:
       - ./swarthmore-ood-configs/swarthmore.yml:/etc/ood/config/ondemand.d/swarthmore.yml
       - ./swarthmore-ood-configs/widgets/disk-usage/disk-usage:/etc/ood/config/apps/dashboard/views/widgets/swarthmore/disk-usage
@@ -38,6 +39,19 @@ services:
       - ./swarthmore-ood-configs/css/swarthmore-firebird.css:/var/www/ood/public/css/swarthmore-firebird.css
       - ./swarthmore-ood-configs/js/swarthmore-firebird.js:/var/www/ood/public/js/swarthmore-firebird.js
 
+  # db:
+  #   image: postgres:14
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_USER: dex
+  #     POSTGRES_PASSWORD: 66964843358242dbaaa7778d8477c288
+  #     POSTGRES_DB: dex_db
+  #   volumes:
+  #     - dex-db:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - network-1
 
   slurm-controller:
     hostname: slurm-controller
@@ -66,3 +80,6 @@ services:
 networks:
   network-1:
     driver: bridge
+
+# volumes:
+#   dex-db:

@@ -1,40 +1,45 @@
-# Stage 1: Compile Ruby using Ubuntu
-FROM ubuntu:20.04 as ruby-builder
+# # Stage 1: Compile Ruby using Ubuntu
+# FROM ubuntu:20.04 AS ruby-builder
 
-# Install dependencies for building Ruby
-RUN apt-get update && \
-    apt-get install -y curl gnupg gcc g++ make \
-    libssl-dev libreadline-dev zlib1g-dev autoconf bison libyaml-dev \
-    libncurses5-dev libffi-dev libgdbm-dev openssl && \
-    rm -rf /var/lib/apt/lists/*
+# # Install dependencies for building Ruby
+# RUN apt-get update && \
+#     apt-get install -y curl gnupg gcc g++ make \
+#     libssl-dev libreadline-dev zlib1g-dev autoconf bison libyaml-dev \
+#     libncurses5-dev libffi-dev libgdbm-dev openssl && \
+#     rm -rf /var/lib/apt/lists/*
 
-# Import GPG keys for RVM
-RUN gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys \
-    409B6B1796C275462A1703113804BB82D39DC0E3 \
-    7D2BAF1CF37B13E2069D6956105BD0E739499BDB
+# # Import GPG keys for RVM
+# RUN gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys \
+#     409B6B1796C275462A1703113804BB82D39DC0E3 \
+#     7D2BAF1CF37B13E2069D6956105BD0E739499BDB
 
-# Install RVM, Ruby 3.1.4, and clean up
-RUN curl -sSL https://get.rvm.io | bash -s stable && \
-    /bin/bash -l -c "rvm install 3.1.4 --with-openssl-dir=$HOME/.rvm/usr && rvm cleanup all" && \
-    echo "source /usr/local/rvm/scripts/rvm" > /etc/profile.d/rvm.sh
+# # Install RVM, Ruby 3.1.4, and clean up
+# RUN curl -sSL https://get.rvm.io | bash -s stable && \
+#     /bin/bash -l -c "rvm install 3.1.4 --with-openssl-dir=$HOME/.rvm/usr && rvm cleanup all" && \
+#     echo "source /usr/local/rvm/scripts/rvm" > /etc/profile.d/rvm.sh
 
 # Stage 2: Set up the final image using Rocky Linux
 FROM rockylinux/rockylinux:9
 
 # Install system updates and essential packages
 RUN dnf -y update && \
+    # dnf config-manager --set-enabled crg \
     dnf install -y epel-release && \
     dnf clean all
 
-# Disable all modules and then enable Ruby 3.1
-RUN dnf -y module reset ruby && \
-    dnf -y module enable ruby:3.1
+RUN dnf -y module enable ruby:3.3 nodejs:20
 
-# Install Ruby, additional packages, and SLURM
-RUN dnf -y install ruby wget which httpd nodejs gcc gcc-c++ nmap-ncat sudo slurm && \
-    dnf -y module reset nodejs && \
-    dnf -y module enable nodejs:18 && \
-    dnf -y install nodejs
+RUN dnf -y install wget which httpd mod_ssl gcc gcc-c++ nmap-ncat sudo slurm ruby nodejs ca-certificates sqlite
+
+# # Disable all modules and then enable Ruby 3.1
+# RUN dnf -y module reset ruby && \
+#     dnf -y module enable ruby:3.1
+
+# # Install Ruby, additional packages, and SLURM
+# RUN dnf -y install ruby wget which httpd mod_ssl nodejs gcc gcc-c++ nmap-ncat sudo slurm && \
+#     dnf -y module reset nodejs && \
+#     dnf -y module enable nodejs:18 && \
+#     dnf -y install nodejs
 
 # Configure SLURM
 COPY slurm.conf /etc/slurm-llnl/slurm.conf
@@ -47,24 +52,23 @@ RUN mkdir -p /etc/pki/tls/certs /etc/pki/tls/private && \
     -out /etc/pki/tls/certs/localhost.crt \
     -subj "/C=US/ST=YourState/L=YourCity/O=YourOrganization/OU=YourDepartment/CN=localhost"
 
+
 # Download and install OnDemand RPM
-RUN curl -O https://yum.osc.edu/ondemand/3.1/ondemand-release-web-3.1-1.el9.noarch.rpm && \
-    dnf -y install ./ondemand-release-web-3.1-1.el9.noarch.rpm && \
-    dnf -y install ondemand ondemand-dex --nobest --skip-broken
+RUN dnf -y install https://yum.osc.edu/ondemand/4.0/ondemand-release-web-4.0-1.el9.noarch.rpm
+RUN dnf -y install \
+    --nogpgcheck --skip-broken \
+    ondemand ondemand-dex ondemand-portal-generator ondemand-nginx-stage
 
 # Copy the RVM installations from the builder stage
-COPY --from=ruby-builder /usr/local/rvm /usr/local/rvm
+# COPY --from=ruby-builder /usr/local/rvm /usr/local/rvm
 
-# Configure system to use the RVM-managed Ruby by default
-RUN echo "source /usr/local/rvm/scripts/rvm" >> /etc/profile.d/rvm.sh && \
-    echo "source /etc/profile.d/rvm.sh" >> ~/.bashrc
+# # Configure system to use the RVM-managed Ruby by default
+# RUN echo "source /usr/local/rvm/scripts/rvm" >> /etc/profile.d/rvm.sh && \
+#     echo "source /etc/profile.d/rvm.sh" >> ~/.bashrc
 
 # Configure HTTPD to use SSL
 RUN sed -i 's|SSLCertificateFile.*|SSLCertificateFile /etc/pki/tls/certs/localhost.crt|' /etc/httpd/conf.d/ssl.conf && \
     sed -i 's|SSLCertificateKeyFile.*|SSLCertificateKeyFile /etc/pki/tls/private/localhost.key|' /etc/httpd/conf.d/ssl.conf
-
-# Install sudo in case it's not included in the base image
-RUN dnf -y install sudo
 
 # Create a new user 'hpc.user' and add it to the 'wheel' group for sudo privileges
 RUN useradd -m hpc.user && \
@@ -80,6 +84,9 @@ apache ALL=(ALL) NOPASSWD: /opt/ood/nginx_stage/sbin/nginx_stage' >/etc/sudoers.
 COPY ./ood_portal.yml /etc/ood/config/ood_portal.yml
 COPY ./slurm-controller.yml /etc/ood/config/clusters.d/slurm-controller.yml
 COPY ./slurm-compute-node-1.yml /etc/ood/config/clusters.d/slurm-compute-node-1.yml
+
+# commented this to see if it works without it...
+# COPY ./dex-config.yml /etc/ood/dex/config.yml
 
 # Update OOD portal and NGINX stage
 RUN /opt/ood/ood-portal-generator/sbin/update_ood_portal && \
